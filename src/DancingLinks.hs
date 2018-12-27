@@ -170,10 +170,6 @@ addOption (DLTable names spacers nodes) items = DLTable names spacers' nodes'
                 then p
                 else dlink' i
 
-    newup i p = if ulink' i == i
-                then p
-                else ulink' i
-
 
 -- indicesOf "abcdefg" "ce" -> [3,5]
 indicesOf :: Ord a => [a] -> [a] -> [Int]
