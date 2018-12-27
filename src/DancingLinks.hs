@@ -68,7 +68,7 @@ makeLenses ''Node
 type Links = ([Item], [Option])
 
 -- a
-item :: Parser String
+item :: Parser Item
 item = some (satisfy isAlphaNum)
 
 -- a d g
