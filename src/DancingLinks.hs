@@ -203,8 +203,8 @@ cover i (DLTable ns ss nodes) = DLTable ns ss nodes'
     -- Unlink the top node by rewiring the nodes on its left/right to each other
     unlink l r ns = let lnode = ns IntMap.! l
                         rnode = ns IntMap.! r
-                    in  IntMap.insert l (lnode { _rlink = r }) $
-                        IntMap.insert r (rnode { _llink = l }) ns
+                    in  IntMap.insert l (lnode & rlink .~ r) $
+                        IntMap.insert r (rnode & llink .~ l) ns
 
 
 -- This is (13) from [Knuth]
@@ -229,9 +229,9 @@ hide p nodes = nodes'
                           dnode = ns IntMap.! d
                           tnode = ns IntMap.! x
                       in
-                          IntMap.insert x (tnode { _topLen = _topLen tnode - 1 }) $ -- TODO: lens for this
-                          IntMap.insert u (unode { _dlink = d }) $
-                          IntMap.insert d (dnode { _ulink = u }) ns
+                          IntMap.insert x (tnode & topLen %~ subtract 1) $
+                          IntMap.insert u (unode & dlink  .~ d         ) $
+                          IntMap.insert d (dnode & ulink  .~ u         ) ns
 
 
 -- This is (14) from [Knuth], the inverse operation to (12)
@@ -250,8 +250,8 @@ uncover i (DLTable ns ss nodes) = DLTable ns ss nodes'
     relink l r ns = let lnode = ns IntMap.! l
                         rnode = ns IntMap.! r
                     in
-                        IntMap.insert l (lnode { _rlink = i }) $
-                        IntMap.insert r (rnode { _llink = i }) ns
+                        IntMap.insert l (lnode & rlink .~ i) $
+                        IntMap.insert r (rnode & llink .~ i) ns
 
 
 -- This is (15) from [Knuth], the inverse operation to (13)
@@ -276,7 +276,8 @@ unhide p nodes = nodes'
                             dnode = ns IntMap.! d
                             tnode = ns IntMap.! x
                         in
-                            IntMap.insert x (tnode { _topLen = _topLen tnode + 1 }) $ -- TODO: lens for this
-                            IntMap.insert u (unode { _dlink = q }) $
-                            IntMap.insert d (dnode { _ulink = q }) ns
+                            IntMap.insert x (tnode & topLen %~ (+1)) $
+                            IntMap.insert u (unode & dlink  .~ q   ) $
+                            IntMap.insert d (dnode & ulink  .~ q   ) ns
+
 
