@@ -14,7 +14,7 @@
 
    References:
 
-   Donald Knuth introducing Dancing
+   Donald Knuth introducing Dancing Links
      https://www.youtube.com/watch?v=_cR9zDlvP88
 
    The Art of Computer Programming, Vol 4, Pre-fascicle 5C
