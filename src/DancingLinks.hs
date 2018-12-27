@@ -67,12 +67,19 @@ makeLenses ''Node
 
 type Links = ([Item], [Option])
 
+-- a
 item :: Parser String
 item = some (satisfy isAlphaNum)
 
+-- a d g
 option :: Parser Option
 option = (item <-> space) <* nl
 
+-- a b c d e f g
+--
+-- c e
+-- a d g
+-- b c f
 parseLinksFile :: Parser Links
 parseLinksFile = (,) <$> (item <-> space) <* (nl >> nl)
                      <*> many option
