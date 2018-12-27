@@ -160,7 +160,7 @@ addOption (DLTable names spacers nodes) items = DLTable names spacers' nodes'
 
     -- Fold the new updates into the table's node map
     nodes'    = foldr
-                  (\(i, node) -> IntMap.insert i node)
+                  (uncurry IntMap.insert)
                   nodes
                   updates
 
