@@ -33,7 +33,6 @@ import           Control.Lens
 import qualified Data.IntMap as IntMap
 import           Data.Char (isAlphaNum)
 import           Data.List (sort)
-import           Data.Maybe (fromMaybe)
 import           NanoParsec hiding (item, option)
 
 ----------------
