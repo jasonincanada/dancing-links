@@ -121,9 +121,9 @@ tableFromLinks (items, options) = built
 addOption :: DLTable -> Option -> DLTable
 addOption (DLTable names spacers nodes) items = DLTable names spacers' nodes'
   where
-    size      = length items
+    len       = length items
     last      = head spacers
-    spacerId  = last + size + 1
+    spacerId  = last + len  + 1
     spacers'  = spacerId : spacers
 
     pairs     = zip [last+1, last+2 ..] (indicesOf names (sort items))
@@ -154,7 +154,7 @@ addOption (DLTable names spacers nodes) items = DLTable names spacers' nodes'
                            0
                            0
                            (ulink' last)
-                           (last + size)) ]
+                           (last + len )) ]
 
     updates   = tops' ++ new ++ bots' ++ newspacer ++ spacer'
 
