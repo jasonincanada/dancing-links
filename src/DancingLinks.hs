@@ -54,8 +54,7 @@ data DLTable = DLTable { _names   :: [Item]
                        , _nodes   :: IntMap.IntMap Node
                        } deriving (Show)
 
-data Node = Node { _index  :: NodeIndex
-                 , _topLen :: NodeIndex
+data Node = Node { _topLen :: NodeIndex
                  , _llink  :: NodeIndex
                  , _rlink  :: NodeIndex
                  , _ulink  :: NodeIndex
@@ -105,9 +104,9 @@ tableFromLinks (items, options) = built
     names   = sort items
     spacers = [len+1]
 
-    root    = [ (0    , Node 0       0 len   1     0 0)                   ]
-    tops    = [ (i    , Node i       0 (i-1) (i+1) i i) | i <- [1,2..len] ]
-    spacer  = [ (len+1, Node (len+1) 0 0     0     0 0)                   ]
+    root    = [ (0    , Node  0  len    1      0  0)                   ]
+    tops    = [ (i    , Node  0  (i-1)  (i+1)  i  i) | i <- [1,2..len] ]
+    spacer  = [ (len+1, Node  0  0      0      0  0)                   ]
 
     nodes   = root ++ tops ++ spacer
 
@@ -132,18 +131,17 @@ addOption (DLTable names spacers nodes) items = DLTable names spacers' nodes'
     -- Updated top nodes for each item in this option. The ulink will change to be the new
     -- node. If there is no existing dlink'd item it will be the new node, otherwise
     -- it is not changed
-    tops'     = [ (i, Node i (len' i +1) (i-1) (i+1) p          (newdn i p)) | (p, i) <- pairs ]
+    tops'     = [ (i, Node (len' i +1) (i-1) (i+1) p          (newdn i p)) | (p, i) <- pairs ]
 
     -- The new item-level nodes introduced by this option
-    new       = [ (p, Node p i           (p-1) (p+1) (ulink' i) i          ) | (p, i) <- pairs ]
+    new       = [ (p, Node i           (p-1) (p+1) (ulink' i) i          ) | (p, i) <- pairs ]
 
     -- Updated dlinks for the bottom item nodes
-    bots'     = [ (b, Node b i           (b-1) (b+1) (ulink' b) p          ) | (p, i) <- pairs,
-                                                                                ulink' i /= i,
-                                                                                let b = ulink' i ]
+    bots'     = [ (b, Node i           (b-1) (b+1) (ulink' b) p          ) | (p, i) <- pairs,
+                                                                              ulink' i /= i,
+                                                                              let b = ulink' i ]
 
     newspacer = [ (spacerId, Node
-                               spacerId
                                (length spacers * (-1))
                                0
                                0
@@ -152,7 +150,6 @@ addOption (DLTable names spacers nodes) items = DLTable names spacers' nodes'
 
     -- Update the last spacer's dlink to point to the last of the newly added items
     spacer'   = [ (last, Node
-                           last
                            (len' last)
                            0
                            0
