@@ -115,7 +115,7 @@ addOption (DLTable names spacers nodes) items = DLTable names spacers' nodes'
     spacerId  = last + size + 1
     spacers'  = spacerId : spacers
 
-    pairs     = zip [last+1, last+2 ..] (indicesOf names items)
+    pairs     = zip [last+1, last+2 ..] (indicesOf names (sort items))
 
     -- Updated top nodes for each item in this option. The ulink will change to be the new
     -- node. If there is no existing dlink'd item it will be the new node, otherwise
