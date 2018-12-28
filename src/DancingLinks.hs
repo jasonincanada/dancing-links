@@ -352,7 +352,7 @@ chooseI = do
   coverI
 
   where
-    -- This isn't yet random, it uses the MRV hueristic (see exercise 9 in [Knuth]) to select
+    -- This isn't yet random, it uses the MRV heuristic (see exercise 9 in [Knuth]) to select
     -- the item with the fewest still active options
     randomi :: NodeMap -> NodeIndex
     randomi nodes = let candidates = actives nodes
