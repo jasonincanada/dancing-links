@@ -2,6 +2,7 @@ module Main where
 
 import DancingLinks
 import NanoParsec
+import qualified Data.IntMap as IntMap
 
 file = "inputs/table10.links"
 
@@ -9,11 +10,15 @@ main :: IO ()
 main = do
   contents <- readFile file
   let links = run parseLinksFile contents
+  let table = tableFromLinks links
 
-  let table     = tableFromLinks links
-  let covered   = cover 1 table
-  let uncovered = uncover 1 covered
+  -- cover(i) and uncover(i) are inverse operations, this should be True
+  putStrLn $ show $ table == (uncover 1 $ cover 1 table)
 
-  -- These should be identical
-  putStrLn $ show table
-  putStrLn $ show uncovered
+  -- Run Algorithm D on the table and output the final state
+  putStrLn $ show $ algorithmD table
+
+  -- ... _solutions = [[22,25,10]]}
+  --
+  -- The options containing nodes 22, 25, and 10 form the single solution to
+  -- the exact cover algorithm run on table10.links
