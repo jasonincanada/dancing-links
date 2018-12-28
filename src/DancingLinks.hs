@@ -368,16 +368,13 @@ chooseI = do
                   | otherwise = let list' = (i, nodes IntMap.! i ^. topLen) : list
                                 in  go (nodes IntMap.! i ^. rlink) list'
 
-
 -- D4 - Cover i
 coverI :: State AlgoState AlgoState
 coverI = do
-  state <- get
+  i     <- geti
+  dl    <- dl i
 
-  let i' = state ^. i
-      dl = (state ^. table ^. nodes) IntMap.! i' ^. dlink
-
-  coverS i'
+  coverS i
   updateStack dl
   tryXl
 
@@ -478,6 +475,9 @@ leaveLevel = do
 -- State getters
 l :: State AlgoState Int
 l = liftM (view level) get
+
+geti :: State AlgoState Int
+geti = liftM (view i) get
 
 xl :: State AlgoState Int
 xl = do
