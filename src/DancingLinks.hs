@@ -368,6 +368,7 @@ chooseI = do
                   | otherwise = let list' = (i, nodes IntMap.! i ^. topLen) : list
                                 in  go (nodes IntMap.! i ^. rlink) list'
 
+
 -- D4 - Cover i
 coverI :: State AlgoState AlgoState
 coverI = do
@@ -389,11 +390,11 @@ coverS i = do
 -- D5 - Try x[l]
 tryXl :: State AlgoState AlgoState
 tryXl = do
-  state <- get
+  i     <- geti
   xl    <- xl
 
-  if state ^. i == xl then backtrack
-                      else loop (xl+1) xl
+  if i == xl then backtrack
+             else loop (xl+1) xl
 
   -- Cover all j /= i in the option containing xl
   where loop p xl
@@ -453,14 +454,7 @@ updateI p = do
 
 -- D7 - Backtrack
 backtrack :: State AlgoState AlgoState
-backtrack = do
-  state <- get
-
-  let tbl = state ^. table
-      i'  = state ^. i
-
-  put (state & table .~ uncover i' tbl)
-  leaveLevel 
+backtrack = do geti >>= uncoverS >> leaveLevel
 
 
 -- D8 - Leave level l
