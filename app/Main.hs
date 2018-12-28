@@ -2,7 +2,6 @@ module Main where
 
 import DancingLinks
 import NanoParsec
-import qualified Data.IntMap as IntMap
 
 file = "inputs/table10.links"
 
