@@ -454,7 +454,7 @@ updateI p = do
 
 -- D7 - Backtrack
 backtrack :: State AlgoState AlgoState
-backtrack = do geti >>= uncoverS >> leaveLevel
+backtrack = geti >>= uncoverS >> leaveLevel
 
 
 -- D8 - Leave level l
