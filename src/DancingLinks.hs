@@ -307,7 +307,7 @@ makeLenses ''AlgoState
 -- Take a dynamic links table and run the exact cover algorithm on it,
 -- returning the final state with all solutions
 algorithmD :: DLTable -> AlgoState
-algorithmD table = evalState enterLevel start
+algorithmD table = evalState initialize start
   where
     start = AlgoState table IntMap.empty 0 0 []
 
@@ -315,8 +315,8 @@ algorithmD table = evalState enterLevel start
 {- The steps D1-D8 of Algorithm D, specified on p. 5 of [Knuth] -}
 
 -- D1 - Initialize
-init :: State AlgoState AlgoState
-init = do
+initialize :: State AlgoState AlgoState
+initialize = do
   state <- get
   put (state & level .~ 0)
   enterLevel
