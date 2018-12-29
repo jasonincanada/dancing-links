@@ -28,7 +28,7 @@ writeLinksFile name (items, options) = writeFile path string
 
     string = unlines [ unwords items,
                        "",
-                       intercalate "\n" $ map (intercalate " ") options ]
+                       intercalate "\n" $ map unwords options ]
 
 main :: IO ()
 main = do
@@ -37,10 +37,10 @@ main = do
   let table = tableFromLinks links
 
   -- cover(i) and uncover(i) are inverse operations, this should be True
-  putStrLn $ show $ table == (uncover 1 $ cover 1 table)
+  print $ table == uncover 1 (cover 1 table)
 
   -- Run Algorithm D on the table and output the final state
-  putStrLn $ show $ algorithmD table
+  print $ algorithmD table
 
   -- ... _solutions = [[["3","s2","s6"],["1","s3","s5"],["2","s1","s4"]],[["3","s1","s5"],["2","s3","s6"],["1","s2","s4"]]]}
   --
