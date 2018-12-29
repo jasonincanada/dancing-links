@@ -54,13 +54,17 @@ import           NanoParsec hiding (item, option)
 
 type Item      = String
 type Option    = [Item]
-type Solution  = [NodeIndex]
+type Solution  = [Option]
 type NodeIndex = Int
 type NodeMap   = IntMap.IntMap Node
 
-data DLTable = DLTable { _names   :: [Item]
-                       , _spacers :: [NodeIndex]
-                       , _nodes   :: NodeMap
+data DLTable = DLTable { _names          :: [Item]
+                       , _spacers        :: [NodeIndex]
+                       , _nodes          :: NodeMap
+
+                       -- Map nodes back to the options they belong to
+                       , _options        :: IntMap.IntMap Option
+                       , _nodesToOptions :: IntMap.IntMap Int
                        } deriving (Eq, Show)
 
 data Node = Node { _topLen :: NodeIndex
@@ -126,7 +130,7 @@ tableFromLinks (items, options) = built
 
     -- Build the initial table containing nodes for the top row and the first spacer
     nodes   = root ++ tops ++ spacer
-    init    = DLTable names spacers (IntMap.fromList nodes)
+    init    = DLTable names spacers (IntMap.fromList nodes) IntMap.empty IntMap.empty
 
     -- Fold all the options into the table one at a time
     built   = foldl addOption init options
@@ -134,7 +138,7 @@ tableFromLinks (items, options) = built
 
 -- Add an option of items to the DLTable, updating all links accordingly
 addOption :: DLTable -> Option -> DLTable
-addOption (DLTable names spacers nodes) items = DLTable names spacers' nodes'
+addOption (DLTable names spacers nodes optionss optMap) items = DLTable names spacers' nodes' options' optMap'
   where
     len       = length items
     last      = head spacers
@@ -180,6 +184,14 @@ addOption (DLTable names spacers nodes) items = DLTable names spacers' nodes'
                   nodes
                   updates
 
+    optionId  = IntMap.size optionss + 1
+    options'  = IntMap.insert optionId items optionss
+    optMaps   = [ (p, optionId) | (p, i) <- pairs ]
+    optMap'   = foldr
+                  (uncurry IntMap.insert)
+                  optMap
+                  optMaps
+
     ulink' n  = (nodes IntMap.! n) ^. ulink
     dlink' n  = (nodes IntMap.! n) ^. dlink
     len'   n  = (nodes IntMap.! n) ^. topLen
@@ -206,9 +218,10 @@ indicesOf alphabet as = let
 -- This is (12) from [Knuth].  Cover an item by unlinking its top node and all other items in
 -- any option containing that item
 cover :: NodeIndex -> DLTable -> DLTable
-cover i (DLTable ns ss nodes) = DLTable ns ss nodes'
+cover i table = table & nodes .~ nodes'
   where
-    nodes' = go (nodes IntMap.! i ^. dlink) nodes
+    ns     = table ^. nodes
+    nodes' = go (ns IntMap.! i ^. dlink) ns
 
     go p ns | p == i    = let l = ns IntMap.! i ^. llink
                               r = ns IntMap.! i ^. rlink
@@ -244,9 +257,10 @@ hide p nodes = nodes'
 
 -- This is (14) from [Knuth], the inverse operation to (12)
 uncover :: NodeIndex -> DLTable -> DLTable
-uncover i (DLTable ns ss nodes) = DLTable ns ss nodes'
+uncover i table = table & nodes .~ nodes'
   where
-    nodes' = go (nodes IntMap.! i ^. ulink) nodes
+    ns     = table ^. nodes
+    nodes' = go (ns IntMap.! i ^. ulink) ns
 
     go p ns | p == i    = let l = ns IntMap.! i ^. llink
                               r = ns IntMap.! i ^. rlink
@@ -337,7 +351,10 @@ addSolution = do
   state <- get
   level <- l
 
-  let solution = [ (state ^. stack) IntMap.! i | i <- [0,1..level-1] ]
+  let solution = [ option | i <- [0,1 .. level-1],
+                            let xi       = (state ^. stack)                   IntMap.! i
+                                optionId = (state ^. table ^. nodesToOptions) IntMap.! xi
+                                option   = (state ^. table ^. options)        IntMap.! optionId ]
 
   put (state & solutions %~ (solution:))
 

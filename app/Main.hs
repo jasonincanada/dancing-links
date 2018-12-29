@@ -17,7 +17,7 @@ main = do
   -- Run Algorithm D on the table and output the final state
   putStrLn $ show $ algorithmD table
 
-  -- ... _solutions = [[22,25,10]]}
+  -- ... _solutions = [[["a","d","f"],["b","g"],["c","e"]]]}
   --
-  -- The options containing nodes 22, 25, and 10 form the single solution to
+  -- The options "a d f", "b g", and "c e" form the single solution to
   -- the exact cover algorithm run on table10.links
