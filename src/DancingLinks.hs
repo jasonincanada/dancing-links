@@ -33,7 +33,9 @@ module DancingLinks
       uncover,
       algorithmD,
       DLTable(..),
-      AlgoState(..)
+      AlgoState(..),
+      Item(..),
+      Option(..)
     ) where
 
 import           Control.Applicative (some, many)
