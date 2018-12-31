@@ -6,7 +6,7 @@ module Sudoku
 
 import Control.Applicative (many)
 import Control.Category    ((>>>))
-import Data.List           (nub, (\\))
+import Data.List           ((\\))
 import NanoParsec hiding   (item)
 
 type Row   = Int
@@ -32,7 +32,7 @@ sudokuFromFile file = readFile file >>= (run sudokuFile >>> return)
 
 -- Get the options needed for the exact cover algorithm for a partial sudoku puzzle
 sudokuOptions :: SudokuPuzzle -> [[String]]
-sudokuOptions puzzle = unique (all \\ concatMap ruledOut puzzle)
+sudokuOptions puzzle = all \\ concatMap ruledOut puzzle
   where
     all   = [[ item 'p' i j, item 'r' i k, item 'c' j k, item 'b' (box i j) k ]
                | i <- [0..8],
@@ -57,5 +57,3 @@ sudokuOptions puzzle = unique (all \\ concatMap ruledOut puzzle)
 
     item :: Char -> Int -> Int -> String
     item c m n = c : show m ++ show n
-
-    unique = Data.List.nub
