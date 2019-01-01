@@ -10,7 +10,7 @@ import Sudoku
 
 main :: IO ()
 main = do
-  puzzle <- sudokuFromFile "inputs/newspaper.sudoku"
+  puzzle <- sudokuFromFile "inputs/29b.sudoku"
   let options = sudokuOptions puzzle
   let table   = tableFromLinks options
 
