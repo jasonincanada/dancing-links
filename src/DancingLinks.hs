@@ -8,9 +8,6 @@
    and exactly reproduces table (10) in Knuth (p. 3). Calling "main" will print out the
    values in Table 1 on (p. 4).
 
-   So it is not too useful yet but this is the initial version that loads in and understands
-   the format of a *.links file.
-
    This revision implements Algorithm D to find all possible solutions to the exact cover
    problem on a dynamic links table
 
