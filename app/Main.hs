@@ -8,17 +8,11 @@ import Sudoku
 --file = "inputs/table10.links"
 --file = "inputs/langford-pairs-3.links"
 
-sudokuInput :: SudokuPuzzle -> ([Item], [Option])
-sudokuInput puzzle = (items options, options)
-  where
-    items   = sort . nub . concat
-    options = sudokuOptions puzzle
-
 main :: IO ()
 main = do
   puzzle <- sudokuFromFile "inputs/newspaper.sudoku"
-  let input = sudokuInput puzzle
-  let table = tableFromLinks input
+  let options = sudokuOptions puzzle
+  let table   = tableFromLinks options
 
   -- uncover(i) is the inverse of cover(i), this should be True
   print $ (uncover 1 . cover 1) table == table

@@ -40,7 +40,7 @@ import           Control.Lens
 import           Control.Monad       (liftM)
 import           Control.Monad.State
 import           Data.Char           (isAlphaNum)
-import           Data.List           (sort, sortBy)
+import           Data.List           (nub, sort, sortBy)
 import           Data.Ord            (comparing)
 
 import qualified Data.IntMap as IntMap
@@ -108,12 +108,13 @@ nl    = char '\n'
 -- Construction --
 ------------------
 
--- Build a DLTable from the items/options parsed from a links file
-tableFromLinks :: Links -> DLTable
-tableFromLinks (items, options) = built
+-- Build a DLTable from the options parsed from a links file. The items are derived
+-- from the options and don't need to be explicitly passed
+tableFromLinks :: [Option] -> DLTable
+tableFromLinks options = built
   where
+    items   = sort $ nub $ concat options
     len     = length items
-    names   = sort items
     spacers = [len+1]
 
     --                  Node topLen left  right up down
@@ -129,7 +130,7 @@ tableFromLinks (items, options) = built
 
     -- Build the initial table containing nodes for the top row and the first spacer
     nodes   = root ++ tops ++ spacer
-    init    = DLTable names spacers (IntMap.fromList nodes) IntMap.empty IntMap.empty
+    init    = DLTable items spacers (IntMap.fromList nodes) IntMap.empty IntMap.empty
 
     -- Fold all the options into the table one at a time
     built   = foldl addOption init options
