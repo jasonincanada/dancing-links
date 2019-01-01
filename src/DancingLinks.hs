@@ -418,7 +418,7 @@ tryXl = do
   -- Cover all j /= i in the option containing xl
   where loop p xl
           | p == xl   = adjustLevel 1 >> enterLevel
-          | otherwise = do j <- topLenOf p
+          | otherwise = do j <- topOf p
                            u <- ul p
 
                            if j <= 0 then loop u xl
@@ -440,7 +440,7 @@ tryAgain = do
 
   -- Uncover all j /= i in the option containing xl
   where loop p xl
-          | p /= xl   = do i  <- topLenOf p
+          | p /= xl   = do i  <- topOf p
                            dl <- dl p
 
                            if i <= 0 then loop dl xl
@@ -497,11 +497,6 @@ xl = do
   state <- get
   level <- l
   return $ (state ^. stack) IntMap.! level
-
-topLenOf :: NodeIndex -> State AlgoState Int
-topLenOf p = do
-  state <- get
-  return $ (state ^. table ^. nodes) IntMap.! p ^. topLen
 
 ll, rl, dl, ul :: NodeIndex -> State AlgoState Int
 ll p = do
