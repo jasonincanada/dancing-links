@@ -184,6 +184,7 @@ addOption (DLTable names spacers nodes optionss optMap) items = DLTable names sp
                   nodes
                   updates
 
+    -- Keep track of which option added these items
     optionId  = IntMap.size optionss + 1
     options'  = IntMap.insert optionId items optionss
     optMaps   = [ (p, optionId) | (p, i) <- pairs ]
