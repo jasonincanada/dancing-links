@@ -345,8 +345,7 @@ enterLevel = do
   if rl == 0 then addSolution >> leaveLevel
              else chooseI
 
--- This currently adds the individual nodes as the solution, really it should
--- add the whole option the nodes belong to
+-- Visit a solution (ie, add it to the list of solutoins we've found)
 addSolution :: State AlgoState ()
 addSolution = do
   state <- get
