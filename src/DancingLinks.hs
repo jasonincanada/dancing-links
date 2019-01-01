@@ -29,8 +29,8 @@ module DancingLinks
       cover,
       uncover,
       algorithmD,
-      DLTable(..),
       AlgoState(..),
+      DLTable(..),
       Item(..),
       Option(..)
     ) where
@@ -345,7 +345,7 @@ enterLevel = do
   if rl == 0 then addSolution >> leaveLevel
              else chooseI
 
--- Visit a solution (ie, add it to the list of solutoins we've found)
+-- Visit a solution (ie, add it to the list of solutions we've found)
 addSolution :: State AlgoState ()
 addSolution = do
   state <- get
