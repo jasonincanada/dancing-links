@@ -107,7 +107,8 @@ nl    = char '\n'
 
 linksTableFromFile :: FilePath -> IO DLTable
 linksTableFromFile file = readFile file >>= (run parseLinksFile
-                                             >>> (tableFromLinks . snd)
+                                             >>> snd
+                                             >>> tableFromLinks
                                              >>> return)
 
 
