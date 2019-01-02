@@ -24,18 +24,20 @@
 {-# Language TemplateHaskell #-}
 
 module DancingLinks
-    ( parseLinksFile,
-      tableFromLinks,
+    ( tableFromLinks,
+      linksTableFromFile,
       cover,
       uncover,
       algorithmD,
       AlgoState(..),
       DLTable(..),
       Item(..),
-      Option(..)
+      Option(..),
+      Solution(..)
     ) where
 
 import           Control.Applicative (some, many)
+import           Control.Category    ((>>>))
 import           Control.Lens
 import           Control.Monad       (liftM)
 import           Control.Monad.State
@@ -102,6 +104,11 @@ parseLinksFile = (,) <$> (item <-> space) <* (nl >> nl)
 
 nl    = char '\n'
 (<->) = sepBy
+
+linksTableFromFile :: FilePath -> IO DLTable
+linksTableFromFile file = readFile file >>= (run parseLinksFile
+                                             >>> (tableFromLinks . snd)
+                                             >>> return)
 
 
 ------------------
