@@ -4,12 +4,12 @@
    installment of The Art of Computer Programming containing descriptions of the Dancing
    Links structure and algorithms is online (see references). 
 
-   The code implemented below and executed with the inputs/table10.links file parses, loads,
-   and exactly reproduces table (10) in Knuth (p. 3). Calling "main" will print out the
-   values in Table 1 on (p. 4).
-
-   This revision implements Algorithm D to find all possible solutions to the exact cover
-   problem on a dynamic links table
+   With this revision, we add the notion of secondary items. Solutions to the exact cover
+   algorithm (Algorithm D) must now consist of options containing at least one primary
+   item and at most one secondary item. The structure of the links file now contains
+   separate lines to list primary and secondary items. All items are loaded into the node
+   table, but when the algorithm selects the next item to cover, it disregards secondary
+   items and considers only the primary ones.
 
 
    References:
@@ -22,10 +22,12 @@
 -}
 
 {-# Language TemplateHaskell #-}
+{-# Language TupleSections #-}
 
 module DancingLinks
     ( tableFromLinks,
       linksTableFromFile,
+      writeLinksFile,
       cover,
       uncover,
       algorithmD,
@@ -36,13 +38,14 @@ module DancingLinks
       Solution(..)
     ) where
 
-import           Control.Applicative (some, many)
+import           Control.Applicative (some, many, (<|>))
 import           Control.Category    ((>>>))
 import           Control.Lens
 import           Control.Monad       (liftM)
 import           Control.Monad.State
 import           Data.Char           (isAlphaNum)
-import           Data.List           (nub, sort, sortBy)
+import           Data.List           (elemIndex, intercalate, nub, sort, sortBy)
+import           Data.Maybe          (fromMaybe)
 import           Data.Ord            (comparing)
 
 import qualified Data.IntMap as IntMap
@@ -60,6 +63,7 @@ type NodeIndex = Int
 type NodeMap   = IntMap.IntMap Node
 
 data DLTable = DLTable { _names          :: [Item]
+                       , _primaryCount   :: Int
                        , _spacers        :: [NodeIndex]
                        , _nodes          :: NodeMap
 
@@ -83,45 +87,75 @@ makeLenses ''Node
 -- Parsing -----
 ----------------
 
-type Links = ([Item], [Option])
+-- Primary items, secondary items, options
+type Links = ([Item], [Item], [Option])
 
 -- a
 item :: Parser Item
-item = some (satisfy isAlphaNum)
+item = some (satisfy isAlphaNum <|> char '-')
 
 -- a d g
 option :: Parser Option
 option = (item <-> space) <* nl
+
+-- pri: a b c d e f g
+-- sec: x y z
+--
+-- c e y
+-- a d g x
+-- b c f z
+parseLinksFile :: Parser Links
+parseLinksFile = (,,) <$> itemList "pri: " <* nl
+                      <*> itemList "sec: " <* (nl >> nl)
+                      <*> many option
+  where
+    itemList :: String -> Parser [Item]
+    itemList prefix = string prefix >> (item <-> space)
 
 -- a b c d e f g
 --
 -- c e
 -- a d g
 -- b c f
-parseLinksFile :: Parser Links
-parseLinksFile = (,) <$> (item <-> space) <* (nl >> nl)
-                     <*> many option
+--
+-- Parse the prior links file version by considering all items primary and passing
+-- an empty list for secondary options
+parseOldLinksFile :: Parser Links
+parseOldLinksFile = (,[],) <$> (item <-> space) <* (nl >> nl)
+                           <*> many option
 
 nl    = char '\n'
 (<->) = sepBy
 
 linksTableFromFile :: FilePath -> IO DLTable
-linksTableFromFile file = readFile file >>= (run parseLinksFile
-                                             >>> snd
-                                             >>> tableFromLinks
-                                             >>> return)
+linksTableFromFile file = readFile file >>= (run (parseLinksFile <|> parseOldLinksFile)
+                                               >>> tableFromLinks
+                                               >>> return)
 
+writeLinksFile :: String -> ([Item], [Item], [Option]) -> IO ()
+writeLinksFile name (primaries, secondaries, options) = writeFile path string
+  where
+    path = "inputs/" ++ name ++ ".links"
+
+    string = unlines [ "pri: " ++ unwords primaries,
+                       "sec: " ++ unwords secondaries,
+                       "",
+                       intercalate "\n" $ map (intercalate " ") options ]
 
 ------------------
 -- Construction --
 ------------------
 
--- Build a DLTable from the options parsed from a links file. The items are derived
--- from the options and don't need to be explicitly passed
-tableFromLinks :: [Option] -> DLTable
-tableFromLinks options = built
+-- check :: Links -> Bool -- ([String])
+-- check: Every option must include at least one primary item
+-- check: Primary and secondary items distinct from each other
+-- check: No options contain an item that is not a known item
+
+-- Build a DLTable from the items/options parsed from a links file.
+tableFromLinks :: Links -> DLTable
+tableFromLinks (primaries, secondaries, options) = built
   where
-    items   = sort $ nub $ concat options
+    items   = primaries ++ secondaries
     len     = length items
     spacers = [len+1]
 
@@ -138,7 +172,7 @@ tableFromLinks options = built
 
     -- Build the initial table containing nodes for the top row and the first spacer
     nodes   = root ++ tops ++ spacer
-    init    = DLTable items spacers (IntMap.fromList nodes) IntMap.empty IntMap.empty
+    init    = DLTable items (length primaries) spacers (IntMap.fromList nodes) IntMap.empty IntMap.empty
 
     -- Fold all the options into the table one at a time
     built   = foldl addOption init options
@@ -146,14 +180,17 @@ tableFromLinks options = built
 
 -- Add an option of items to the DLTable, updating all links accordingly
 addOption :: DLTable -> Option -> DLTable
-addOption (DLTable names spacers nodes optionss optMap) items = DLTable names spacers' nodes' options' optMap'
+addOption (DLTable names pc spacers nodes optionss optMap) items = DLTable names pc spacers' nodes' options' optMap'
   where
     len       = length items
     last      = head spacers
     spacerId  = last + len + 1
     spacers'  = spacerId : spacers
 
-    pairs     = zip [last+1, last+2 ..] (indicesOf names (sort items))
+    pairs     = zip [last+1, last+2 ..] aligned
+
+    -- Sort the items in this option in the order of the items as listed at the top of the links file
+    aligned   = indicesIn names $ sortBy (comparing $ indexIn names) items
 
     -- Updated top nodes for each item in this option. The ulink will change to be the new
     -- node. If there is no existing dlink'd item it will be the new node, otherwise
@@ -210,15 +247,18 @@ addOption (DLTable names spacers nodes optionss optMap) items = DLTable names sp
                 else dlink' i
 
 
--- indicesOf "abcdefg" "ce" -> [3,5]
-indicesOf :: Ord a => [a] -> [a] -> [Int]
-indicesOf alphabet as = let
+-- indicesIn "abcdefg" "ce" -> [3,5]
+indicesIn :: Ord a => [a] -> [a] -> [Int]
+indicesIn alphabet as = let
                           z   = zip alphabet [1..]
                           f a = case lookup a z of
                                    Nothing -> 0 -- really an error, we don't recognize this item
                                    Just x  -> x
                         in map f as
 
+-- indexIn "abcdefg" "c" -> 3
+indexIn :: Ord a => [a] -> a -> Int
+indexIn as a = fromMaybe 0 $ elemIndex a as
 
 ------------------
 -- Operations ----
@@ -348,10 +388,11 @@ initialize = do
 -- D2 - Enter level l
 enterLevel :: State AlgoState AlgoState
 enterLevel = do
-  rl <- rl 0
+  state <- get
+  let nextI = chooseItem (state ^. table)
 
-  if rl == 0 then addSolution >> leaveLevel
-             else chooseI
+  if nextI == (-1) then addSolution >> leaveLevel
+                   else chooseI
 
 -- Visit a solution (ie, add it to the list of solutions we've found)
 addSolution :: State AlgoState ()
@@ -371,25 +412,29 @@ addSolution = do
 chooseI :: State AlgoState AlgoState
 chooseI = do
   state <- get
-  let chosen = randomi (state ^. table ^. nodes)
+  let chosen = chooseItem (state ^. table)
 
   put (state & i .~ chosen)
   coverI
 
+-- Use the MRV heuristic (see exercise 9 in [Knuth]) to select the active item with the fewest
+-- still-active options
+chooseItem :: DLTable -> NodeIndex
+chooseItem table
+  | null byCount = -1
+  | otherwise    = fst (head byCount)
   where
-    -- This isn't yet random, it uses the MRV heuristic (see exercise 9 in [Knuth]) to select
-    -- the item with the fewest still active options
-    randomi :: NodeMap -> NodeIndex
-    randomi nodes = let candidates = actives nodes
-                        byCount    = sortBy (comparing snd) candidates
-                        fewest     = head byCount
-                    in  fst fewest
+    byCount    = sortBy (comparing snd) candidates
+    candidates = actives (table ^. nodes) (table ^. primaryCount)
 
     -- Get a list of still-active item indices and the number of active options containing the item
-    actives :: NodeMap -> [(NodeIndex, Int)]
-    actives nodes = go (nodes IntMap.! 0 ^. rlink) []
+    actives :: NodeMap -> Int -> [(NodeIndex, Int)]
+    actives nodes primaries = active
       where
-        go i list | i == 0    = list
+        active = filter ((<=primaries) . fst) list
+        list   = go (nodes IntMap.! 0 ^. rlink) []
+
+        go i list | i == 0    = reverse list
                   | otherwise = let list' = (i, nodes IntMap.! i ^. topLen) : list
                                 in  go (nodes IntMap.! i ^. rlink) list'
 
