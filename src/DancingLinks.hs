@@ -264,8 +264,8 @@ indexIn as a = fromMaybe 0 $ elemIndex a as
 -- Operations ----
 ------------------
 
--- This is (12) from [Knuth].  Cover an item by unlinking its top node and all other items in
--- any option containing that item
+-- This is (12) from [Knuth].  Cover an item by unlinking its top node and all nodes in
+-- any option containing that item (other than the nodes for the item being covered)
 cover :: NodeIndex -> DLTable -> DLTable
 cover i table = table & nodes .~ nodes'
   where
