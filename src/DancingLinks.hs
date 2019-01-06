@@ -34,6 +34,7 @@ module DancingLinks
       AlgoState(..),
       DLTable(..),
       Item(..),
+      Links(..),
       Option(..),
       Solution(..)
     ) where
@@ -110,7 +111,7 @@ parseLinksFile = (,,) <$> itemList "pri: " <* nl
                       <*> many option
   where
     itemList :: String -> Parser [Item]
-    itemList prefix = string prefix >> (item <-> space)
+    itemList prefix = string prefix >> ((item <-> space) <|> return [])
 
 -- a b c d e f g
 --
