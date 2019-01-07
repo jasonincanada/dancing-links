@@ -505,8 +505,7 @@ commit p j = do
   c <- prop color p
 
   if c == 0 then coverS j
-            else if c > 0 then purify p
-                          else return ()
+            else when (c > 0) (purify p)
 
 -- This is (56) from [Knuth]
 uncommit :: NodeIndex -> NodeIndex -> State AlgoState ()
@@ -514,8 +513,7 @@ uncommit p j = do
   c <- prop color p
 
   if c == 0 then uncoverS j
-            else if c > 0 then unpurify p
-                          else return ()
+            else when (c > 0) (unpurify p)
 
 -- This is (55) from [Knuth]
 purify :: NodeIndex -> State AlgoState ()
