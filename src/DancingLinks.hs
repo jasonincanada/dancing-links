@@ -464,7 +464,7 @@ chooseItem table
 coverI :: State AlgoState AlgoState
 coverI = do
   i     <- geti
-  dl    <- dl i
+  dl    <- prop dlink i
 
   coverS i
   updateStack dl
@@ -490,8 +490,8 @@ tryXl = do
   -- Cover all j /= i in the option containing xl
   where loop p xl
           | p == xl   = adjustLevel 1 >> enterLevel
-          | otherwise = do j <- topOf p
-                           u <- ul p
+          | otherwise = do j <- prop topLen p
+                           u <- prop ulink p
 
                            if j <= 0 then loop u xl
                                      else commit p j >> loop (p+1) xl
@@ -585,14 +585,14 @@ tryAgain = do
 
   -- Uncover all j /= i in the option containing xl
   where loop p xl
-          | p /= xl   = do j  <- topOf p
-                           dl <- dl p
+          | p /= xl   = do j  <- prop topLen p
+                           dl <- prop dlink p
 
                            if j <= 0 then loop dl xl
                                      else uncommit p j >> loop (p-1) xl
 
-          | otherwise = do i  <- topOf xl
-                           xl <- dl xl
+          | otherwise = do i  <- prop topLen xl
+                           xl <- prop dlink xl
 
                            updateStack xl
                            updateI i
@@ -643,29 +643,7 @@ xl = do
   level <- l
   return $ (state ^. stack) IntMap.! level
 
-ll, rl, dl, ul :: NodeIndex -> State AlgoState Int
-ll p = do
-  state <- get
-  return $ (state ^. table ^. nodes) IntMap.! p ^. llink
-
-rl p = do
-  state <- get
-  return $ (state ^. table ^. nodes) IntMap.! p ^. rlink
-
-dl p = do
-  state <- get
-  return $ (state ^. table ^. nodes) IntMap.! p ^. dlink
-
-ul p = do
-  state <- get
-  return $ (state ^. table ^. nodes) IntMap.! p ^. ulink
-
-topOf :: NodeIndex -> State AlgoState Int
-topOf p = do
-  state <- get
-  return $ (state ^. table ^. nodes) IntMap.! p ^. topLen
-
-prop :: Control.Lens.Getting a Node a -> NodeIndex -> State AlgoState a
+prop :: Getting a Node a -> NodeIndex -> State AlgoState a
 prop lens p = do
   state <- get
   return $ (state ^. table ^. nodes) IntMap.! p ^. lens
