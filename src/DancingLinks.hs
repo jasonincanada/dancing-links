@@ -143,7 +143,7 @@ writeLinksFile name (primaries, secondaries, options) = writeFile path string
     string = unlines [ "pri: " ++ unwords primaries,
                        "sec: " ++ unwords secondaries,
                        "",
-                       intercalate "\n" $ map (intercalate " ") options ]
+                       intercalate "\n" $ map unwords options ]
 
 ------------------
 -- Construction --
