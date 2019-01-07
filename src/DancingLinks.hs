@@ -60,6 +60,7 @@ import           NanoParsec hiding (item, option)
 type Item      = String
 type Option    = [Item]
 type Solution  = [Option]
+type Color     = Int
 type NodeIndex = Int
 type NodeMap   = IntMap.IntMap Node
 
@@ -78,6 +79,7 @@ data Node = Node { _topLen :: NodeIndex
                  , _rlink  :: NodeIndex
                  , _ulink  :: NodeIndex
                  , _dlink  :: NodeIndex
+                 , _color  :: Color
                  } deriving (Eq, Show)
 
 makeLenses ''DLTable
@@ -160,12 +162,12 @@ tableFromLinks (primaries, secondaries, options) = built
     len     = length items
     spacers = [len+1]
 
-    --                  Node topLen left  right up down
-    ------------------------------------------------------------------------
-    root    = [ (0    , Node na     len   1     na na)                     ]
-    tops    = [ (i    , Node 0      (i-1) (i+1) i  i ) | i <- [1,2..len-1] ] ++
-              [ (i    , Node 0      (i-1) 0     i  i ) | i <- [len]        ]
-    spacer  = [ (len+1, Node 0      na    na    0  0 )                     ]
+    --                  Node topLen left  right up dn color
+    ---------------------------------------------------------------------------
+    root    = [ (0    , Node na     len   1     na na 0 )                     ]
+    tops    = [ (i    , Node 0      (i-1) (i+1) i  i  0 ) | i <- [1,2..len-1] ] ++
+              [ (i    , Node 0      (i-1) 0     i  i  0 ) | i <- [len]        ]
+    spacer  = [ (len+1, Node 0      na    na    0  0  0 )                     ]
 
     -- Some fields are not applicable for certain node types, so be explicit about this
     -- until we've refactored Node into multiple node types
@@ -196,16 +198,16 @@ addOption (DLTable names pc spacers nodes optionss optMap) items = DLTable names
     -- Updated top nodes for each item in this option. The ulink will change to be the new
     -- node. If there is no existing dlink'd item it will be the new node, otherwise
     -- it is not changed. Remember to set the rlink of the right-most item to 0
-    tops'     = [ (i, Node (len' i +1) (i-1) (i+1) p          (newdn i p)) | (p, i) <- pairs, i <  length names] ++
-                [ (i, Node (len' i +1) (i-1) 0     p          (newdn i p)) | (p, i) <- pairs, i == length names]
+    tops'     = [ (i, Node (len' i +1) (i-1) (i+1) p          (newdn i p) 0 ) | (p, i) <- pairs, i <  length names] ++
+                [ (i, Node (len' i +1) (i-1) 0     p          (newdn i p) 0 ) | (p, i) <- pairs, i == length names]
 
     -- The new item-level nodes introduced by this option
-    new       = [ (p, Node i           na    na    (ulink' i) i          ) | (p, i) <- pairs ]
+    new       = [ (p, Node i           na    na    (ulink' i) i           0 ) | (p, i) <- pairs ]
 
     -- Updated dlinks for the bottom item nodes
-    bots'     = [ (b, Node i           na    na    (ulink' b) p          ) | (p, i) <- pairs,
-                                                                              ulink' i /= i,
-                                                                              let b = ulink' i ]
+    bots'     = [ (b, Node i           na    na    (ulink' b) p           0 ) | (p, i) <- pairs,
+                                                                                 ulink' i /= i,
+                                                                                 let b = ulink' i ]
 
     na        = 0
     newspacer = [ (spacerId, Node
@@ -213,6 +215,7 @@ addOption (DLTable names pc spacers nodes optionss optMap) items = DLTable names
                                na
                                na
                                (last + 1)
+                               0
                                0) ]
 
     -- Update the last spacer's dlink to point to the last of the newly added items
@@ -221,7 +224,8 @@ addOption (DLTable names pc spacers nodes optionss optMap) items = DLTable names
                            0
                            0
                            (ulink' last)
-                           (last + len)) ]
+                           (last + len)
+                           0) ]
 
     -- Fold the new updates into the table's node map
     updates   = tops' ++ new ++ bots' ++ newspacer ++ spacer'
@@ -265,38 +269,42 @@ indexIn as a = fromMaybe 0 $ elemIndex a as
 -- Operations ----
 ------------------
 
--- This is (12) from [Knuth].  Cover an item by unlinking its top node and all nodes in
+-- This is (50) from [Knuth].  Cover an item by unlinking its top node and all nodes in
 -- any option containing that item (other than the nodes for the item being covered)
 cover :: NodeIndex -> DLTable -> DLTable
 cover i table = table & nodes .~ nodes'
   where
     ns     = table ^. nodes
-    nodes' = go (ns IntMap.! i ^. dlink) ns
+    nodes' = go ((^^.) ns i dlink) ns
 
-    go p ns | p == i    = let l = ns IntMap.! i ^. llink
-                              r = ns IntMap.! i ^. rlink
+    go p ns | p == i    = let l = (^^.) ns i llink
+                              r = (^^.) ns i rlink
                           in  unlink l r ns
-            | otherwise = go (ns IntMap.! p ^. dlink) (hide p ns)
+            | otherwise = go ((^^.) ns p dlink) (hide p ns)
 
     -- Unlink the top node by rewiring the nodes on its left/right to each other
     unlink l r ns = setLLink r l $
                     setRLink l r ns
 
 
--- This is (13) from [Knuth]
+-- This is (51) from [Knuth]
 hide :: NodeIndex -> NodeMap -> NodeMap
 hide p nodes = nodes'
   where
     nodes' = go (p+1) nodes
 
     go q ns | q == p    = ns
-            | otherwise = let x = ns IntMap.! q ^. topLen
-                              u = ns IntMap.! q ^. ulink
-                              d = ns IntMap.! q ^. dlink
+            | otherwise = let x = (^^.) ns q topLen
+                              u = (^^.) ns q ulink
+                              d = (^^.) ns q dlink
                           in
                               -- Is q a spacer node
-                              if x <= 0 then go u     ns
-                                        else go (q+1) (unlink x u d ns)
+                              if x <= 0 then go u ns
+                                        else
+                                             -- Skip this q if its color is < 0
+                                             if (^^.) ns q color < 0
+                                                then go (q+1) ns
+                                                else go (q+1) (unlink x u d ns)
 
     -- Unlink a node by rewiring the nodes above/below it to each other
     -- Don't forget to decrement the number of active options for this item
@@ -305,42 +313,51 @@ hide p nodes = nodes'
                       decLength x ns
 
 
--- This is (14) from [Knuth], the inverse operation to (12)
+-- This is (52) from [Knuth], the inverse operation to (50)
 uncover :: NodeIndex -> DLTable -> DLTable
 uncover i table = table & nodes .~ nodes'
   where
     ns     = table ^. nodes
-    nodes' = go (ns IntMap.! i ^. ulink) ns
+    nodes' = go ((^^.) ns i ulink) ns
 
-    go p ns | p == i    = let l = ns IntMap.! i ^. llink
-                              r = ns IntMap.! i ^. rlink
+    get i l= (^^.) ns i l
+
+    go p ns | p == i    = let l = (^^.) ns i llink
+                              r = (^^.) ns i rlink
                           in  relink l r i ns
-            | otherwise = go (ns IntMap.! p ^. ulink) (unhide p ns)
+            | otherwise = go ((^^.) ns p ulink) (unhide p ns)
 
     -- Relink the top node by rewiring the nodes on its left/right back to it
     relink l r i ns = setLLink r i $
                       setRLink l i ns
 
 
--- This is (15) from [Knuth], the inverse operation to (13)
+-- This is (53) from [Knuth], the inverse operation to (51)
 unhide :: NodeIndex -> NodeMap -> NodeMap
 unhide p nodes = nodes'
   where
     nodes' = go (p-1) nodes
 
     go q ns | q == p    = ns
-            | otherwise = let x = ns IntMap.! q ^. topLen
-                              u = ns IntMap.! q ^. ulink
-                              d = ns IntMap.! q ^. dlink
+            | otherwise = let x = (^^.) ns q topLen
+                              u = (^^.) ns q ulink
+                              d = (^^.) ns q dlink
                           in
                               -- Is q a spacer node
                               if x <= 0 then go d     ns
-                                        else go (q-1) (relink x u d q ns)
+                                        else
+                                             -- Skip this q if its color is < 0
+                                             if (^^.) ns q color < 0
+                                                then go (q-1) ns
+                                                else go (q-1) (relink x u d q ns)
 
     -- Relink a node by rewiring the nodes above/below it back to it
     relink x u d q ns = setDLink u q $
                         setULink d q $
                         incLength x ns
+
+-- Save some punctuation, by inventing new punctuation
+(^^.) nodes p lens = nodes IntMap.! p ^. lens
 
 -- Setter functions for node links
 setLLink, setRLink, setDLink, setULink :: NodeIndex -> NodeIndex -> NodeMap -> NodeMap
@@ -349,6 +366,9 @@ setRLink p tgt nodes = IntMap.insert p (nodes IntMap.! p & rlink .~ tgt) nodes
 setDLink p tgt nodes = IntMap.insert p (nodes IntMap.! p & dlink .~ tgt) nodes
 setULink p tgt nodes = IntMap.insert p (nodes IntMap.! p & ulink .~ tgt) nodes
 
+setColor :: NodeIndex -> Color -> NodeMap -> NodeMap
+setColor p c nodes = IntMap.insert p (nodes IntMap.! p & color .~ c) nodes
+
 -- Increment/decrement the length field for a top node
 decLength, incLength :: NodeIndex -> NodeMap -> NodeMap
 decLength i nodes = IntMap.insert i (nodes IntMap.! i & topLen %~ subtract 1) nodes
@@ -356,7 +376,7 @@ incLength i nodes = IntMap.insert i (nodes IntMap.! i & topLen %~ (+1)      ) no
 
 
 ------------------
--- Algorithm D ---
+-- Algorithm C ---
 ------------------
 
 data AlgoState = AlgoState { _table     :: DLTable
@@ -376,9 +396,9 @@ algorithmD table = evalState initialize start
     start = AlgoState table IntMap.empty 0 0 []
 
 
-{- The steps D1-D8 of Algorithm D, specified on p. 5 of [Knuth] -}
+{- The steps C1-C8 of Algorithm C, specified on p. 26 of [Knuth] -}
 
--- D1 - Initialize
+-- C1 - Initialize
 initialize :: State AlgoState AlgoState
 initialize = do
   state <- get
@@ -386,7 +406,7 @@ initialize = do
   enterLevel
 
 
--- D2 - Enter level l
+-- C2 - Enter level l
 enterLevel :: State AlgoState AlgoState
 enterLevel = do
   state <- get
@@ -409,7 +429,7 @@ addSolution = do
   put (state & solutions %~ (solution:))
 
 
--- D3 - Choose i
+-- C3 - Choose i
 chooseI :: State AlgoState AlgoState
 chooseI = do
   state <- get
@@ -440,7 +460,7 @@ chooseItem table
                                 in  go (nodes IntMap.! i ^. rlink) list'
 
 
--- D4 - Cover i
+-- C4 - Cover i
 coverI :: State AlgoState AlgoState
 coverI = do
   i     <- geti
@@ -458,7 +478,7 @@ coverS i = do
   put (state & table %~ cover i)
 
 
--- D5 - Try x[l]
+-- C5 - Try x[l]
 tryXl :: State AlgoState AlgoState
 tryXl = do
   i     <- geti
@@ -474,15 +494,88 @@ tryXl = do
                            u <- ul p
 
                            if j <= 0 then loop u xl
-                                     else coverS j >> loop (p+1) xl
+                                     else commit p j >> loop (p+1) xl
 
 adjustLevel :: Int -> State AlgoState ()
 adjustLevel delta = do
   state <- get
   put (state & level %~ (+delta))
 
+-- This is (54) from [Knuth]
+commit :: NodeIndex -> NodeIndex -> State AlgoState ()
+commit p j = do
+  c <- prop color p
 
--- D6 - Try again
+  if c == 0 then coverS j
+            else if c > 0 then purify p
+                          else return ()
+
+-- This is (56) from [Knuth]
+uncommit :: NodeIndex -> NodeIndex -> State AlgoState ()
+uncommit p j = do
+  c <- prop color p
+
+  if c == 0 then uncoverS j
+            else if c > 0 then unpurify p
+                          else return ()
+
+-- This is (55) from [Knuth]
+purify :: NodeIndex -> State AlgoState ()
+purify p = do
+  c <- prop color p
+  i <- prop topLen p
+  q <- prop dlink i
+
+  go q c i
+
+  where go :: NodeIndex -> Color -> Int -> State AlgoState ()
+        go q c i
+          | q == i    = return ()
+          | otherwise = do c' <- prop color q
+                           q' <- prop dlink q
+
+                           if c' /= c then hideS q >> go q' c i
+                                      else if q /= p
+                                           then setColorS q (-1) >> go q' c i
+                                           else                     go q' c i
+
+-- This is (57) from [Knuth]
+unpurify :: NodeIndex -> State AlgoState ()
+unpurify p = do
+  c <- prop color p
+  i <- prop topLen p
+  q <- prop ulink i
+
+  go q c i
+
+  where go :: NodeIndex -> Color -> Int -> State AlgoState ()
+        go q c i
+          | q == i    = return ()
+          | otherwise = do c' <- prop color q
+                           q' <- prop ulink q
+
+                           if c' < 0  then setColorS q c >> go q' c i
+                                      else if q /= p
+                                           then unhideS q >> go q' c i
+                                           else              go q' c i
+
+hideS :: NodeIndex -> State AlgoState ()
+hideS p = do
+  state <- get
+  put $ state & table . nodes %~ hide p
+
+unhideS :: NodeIndex -> State AlgoState ()
+unhideS p = do
+  state <- get
+  put $ state & table . nodes %~ unhide p
+
+setColorS :: NodeIndex -> Color -> State AlgoState ()
+setColorS p c = do
+  state <- get
+  put $ state & table . nodes %~ setColor p c
+
+
+-- C6 - Try again
 tryAgain :: State AlgoState AlgoState
 tryAgain = do
   level <- l
@@ -492,11 +585,11 @@ tryAgain = do
 
   -- Uncover all j /= i in the option containing xl
   where loop p xl
-          | p /= xl   = do i  <- topOf p
+          | p /= xl   = do j  <- topOf p
                            dl <- dl p
 
-                           if i <= 0 then loop dl xl
-                                     else uncoverS i >> loop (p-1) xl
+                           if j <= 0 then loop dl xl
+                                     else uncommit p j >> loop (p-1) xl
 
           | otherwise = do i  <- topOf xl
                            xl <- dl xl
@@ -523,12 +616,12 @@ updateI p = do
   put (state & i .~ p)
 
 
--- D7 - Backtrack
+-- C7 - Backtrack
 backtrack :: State AlgoState AlgoState
 backtrack = geti >>= uncoverS >> leaveLevel
 
 
--- D8 - Leave level l
+-- C8 - Leave level l
 leaveLevel :: State AlgoState AlgoState
 leaveLevel = do
   level <- l
@@ -571,4 +664,9 @@ topOf :: NodeIndex -> State AlgoState Int
 topOf p = do
   state <- get
   return $ (state ^. table ^. nodes) IntMap.! p ^. topLen
+
+prop :: Control.Lens.Getting a Node a -> NodeIndex -> State AlgoState a
+prop lens p = do
+  state <- get
+  return $ (state ^. table ^. nodes) IntMap.! p ^. lens
 
