@@ -320,8 +320,6 @@ uncover i table = table & nodes .~ nodes'
     ns     = table ^. nodes
     nodes' = go ((^^.) ns i ulink) ns
 
-    get i l= (^^.) ns i l
-
     go p ns | p == i    = let l = (^^.) ns i llink
                               r = (^^.) ns i rlink
                           in  relink l r i ns
