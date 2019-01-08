@@ -9,9 +9,9 @@ trominoTilingLinks :: Links
 trominoTilingLinks = (items, [], options)
   where
     items     = monomino ++ squares
-    monomino  = [ "m" ]
-    squares   = [ show r ++ show c | r <- [0..7],
-                                     c <- [0..7] ]
+    monomino  = [ it "m" ]
+    squares   = [ it $ show r ++ show c | r <- [0..7],
+                                          c <- [0..7] ]
 
 
     -- m 00
@@ -21,15 +21,18 @@ trominoTilingLinks = (items, [], options)
     -- 00 10 20
     options    = monominoes ++ trominoes
     
-    monominoes = [["m", s] | s <- squares ] 
+    monominoes = [[it "m", s] | s <- squares ]
     trominoes  = across ++ down
-    across     = [[ show row ++ show (col+0),
-                    show row ++ show (col+1),
-                    show row ++ show (col+2)] | row <- [0..7],
-                                                col <- [0..5] ]
+    across     = [[ it $ show row ++ show (col+0),
+                    it $ show row ++ show (col+1),
+                    it $ show row ++ show (col+2)] | row <- [0..7],
+                                                     col <- [0..5] ]
 
-    down       = [[ show (row+0) ++ show col,
-                    show (row+1) ++ show col,
-                    show (row+2) ++ show col] | row <- [0..5],
-                                                col <- [0..7] ]
+    down       = [[ it $ show (row+0) ++ show col,
+                    it $ show (row+1) ++ show col,
+                    it $ show (row+2) ++ show col] | row <- [0..5],
+                                                     col <- [0..7] ]
 
+    -- Default coloring is no coloring
+    it :: String -> Item
+    it s = (s, "")

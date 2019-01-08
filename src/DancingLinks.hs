@@ -31,12 +31,11 @@ module DancingLinks
       cover,
       uncover,
       algorithmD,
+      showItem,
       AlgoState(..),
-      DLTable(..),
-      Item(..),
-      Links(..),
       Option(..),
-      Solution(..)
+      Item(..),
+      Links(..)
     ) where
 
 import           Control.Applicative (some, many, (<|>))
@@ -57,14 +56,15 @@ import           NanoParsec hiding (item, option)
 -- Types -------
 ----------------
 
-type Item      = String
+type Item      = (String, Coloring)
+type Coloring  = String
 type Option    = [Item]
 type Solution  = [Option]
 type Color     = Int
 type NodeIndex = Int
 type NodeMap   = IntMap.IntMap Node
 
-data DLTable = DLTable { _names          :: [Item]
+data DLTable = DLTable { _names          :: [String]
                        , _primaryCount   :: Int
                        , _spacers        :: [NodeIndex]
                        , _nodes          :: NodeMap
@@ -94,8 +94,14 @@ makeLenses ''Node
 type Links = ([Item], [Item], [Option])
 
 -- a
+-- a:X
 item :: Parser Item
-item = some (satisfy isAlphaNum <|> char '-')
+item = (,) <$> some (satisfy isAlphaNum <|> char '-')
+           <*> coloring
+
+coloring :: Parser Coloring
+coloring = (char ':' >> some (satisfy isAlphaNum))
+           <|> return ""
 
 -- a d g
 option :: Parser Option
@@ -140,10 +146,15 @@ writeLinksFile name (primaries, secondaries, options) = writeFile path string
   where
     path = "inputs/" ++ name ++ ".links"
 
-    string = unlines [ "pri: " ++ unwords primaries,
-                       "sec: " ++ unwords secondaries,
+    string = unlines [ "pri: " ++ unwords (map fst primaries),
+                       "sec: " ++ unwords (map fst secondaries),
                        "",
-                       intercalate "\n" $ map unwords options ]
+                       intercalate "\n" $ map (unwords . map showItem) options ]
+
+showItem :: Item -> String
+showItem (item, coloring)
+  | coloring == "" = item
+  | otherwise      = item ++ ":" ++ coloring
 
 ------------------
 -- Construction --
@@ -159,6 +170,7 @@ tableFromLinks :: Links -> DLTable
 tableFromLinks (primaries, secondaries, options) = built
   where
     items   = primaries ++ secondaries
+    names   = map fst items
     len     = length items
     spacers = [len+1]
 
@@ -175,37 +187,42 @@ tableFromLinks (primaries, secondaries, options) = built
 
     -- Build the initial table containing nodes for the top row and the first spacer
     nodes   = root ++ tops ++ spacer
-    init    = DLTable items (length primaries) spacers (IntMap.fromList nodes) IntMap.empty IntMap.empty
+    init    = DLTable names (length primaries) spacers (IntMap.fromList nodes) IntMap.empty IntMap.empty
+
+    -- Gather the known colorings from the options and pass it for indexing so addOption
+    -- doesn't need to derive it each time
+    colors  = options & concatMap (map snd) & nub & sort
 
     -- Fold all the options into the table one at a time
-    built   = foldl addOption init options
+    built   = foldl (addOption colors) init options
 
 
 -- Add an option of items to the DLTable, updating all links accordingly
-addOption :: DLTable -> Option -> DLTable
-addOption (DLTable names pc spacers nodes optionss optMap) items = DLTable names pc spacers' nodes' options' optMap'
+addOption :: [Coloring] -> DLTable -> Option -> DLTable
+addOption colors (DLTable names pc spacers nodes optionss optMap) items = DLTable names pc spacers' nodes' options' optMap'
   where
     len       = length items
     last      = head spacers
     spacerId  = last + len + 1
     spacers'  = spacerId : spacers
 
-    pairs     = zip [last+1, last+2 ..] aligned
+    pairs     = zip [last+1, last+2 ..] $ zip aligned colored
 
     -- Sort the items in this option in the order of the items as listed at the top of the links file
-    aligned   = indicesIn names $ sortBy (comparing $ indexIn names) items
+    aligned   = indicesIn names  1 $ map fst $ sortBy (comparing $ indexIn names . fst) items
+    colored   = indicesIn colors 0 $ map snd $ sortBy (comparing $ indexIn names . fst) items
 
     -- Updated top nodes for each item in this option. The ulink will change to be the new
     -- node. If there is no existing dlink'd item it will be the new node, otherwise
     -- it is not changed. Remember to set the rlink of the right-most item to 0
-    tops'     = [ (i, Node (len' i +1) (i-1) (i+1) p          (newdn i p) 0 ) | (p, i) <- pairs, i <  length names] ++
-                [ (i, Node (len' i +1) (i-1) 0     p          (newdn i p) 0 ) | (p, i) <- pairs, i == length names]
+    tops'     = [ (i, Node (len' i +1) (i-1) (i+1) p          (newdn i p) 0 ) | (p, (i, _)) <- pairs, i <  length names] ++
+                [ (i, Node (len' i +1) (i-1) 0     p          (newdn i p) 0 ) | (p, (i, _)) <- pairs, i == length names]
 
     -- The new item-level nodes introduced by this option
-    new       = [ (p, Node i           na    na    (ulink' i) i           0 ) | (p, i) <- pairs ]
+    new       = [ (p, Node i           na    na    (ulink' i) i           c ) | (p, (i, c)) <- pairs ]
 
     -- Updated dlinks for the bottom item nodes
-    bots'     = [ (b, Node i           na    na    (ulink' b) p           0 ) | (p, i) <- pairs,
+    bots'     = [ (b, Node i           na    na    (ulink' b) p    (clr' b) ) | (p, (i, _)) <- pairs,
                                                                                  ulink' i /= i,
                                                                                  let b = ulink' i ]
 
@@ -246,20 +263,21 @@ addOption (DLTable names pc spacers nodes optionss optMap) items = DLTable names
     ulink' n  = (nodes IntMap.! n) ^. ulink
     dlink' n  = (nodes IntMap.! n) ^. dlink
     len'   n  = (nodes IntMap.! n) ^. topLen
+    clr'   n  = (nodes IntMap.! n) ^. color
 
     newdn i p = if dlink' i == i
                 then p
                 else dlink' i
 
 
--- indicesIn "abcdefg" "ce" -> [3,5]
-indicesIn :: Ord a => [a] -> [a] -> [Int]
-indicesIn alphabet as = let
-                          z   = zip alphabet [1..]
-                          f a = case lookup a z of
-                                   Nothing -> 0 -- really an error, we don't recognize this item
-                                   Just x  -> x
-                        in map f as
+-- indicesIn "abcdefg" 1 "ce" -> [3,5]
+indicesIn :: Ord a => [a] -> Int -> [a] -> [Int]
+indicesIn alphabet n as = let
+                            z   = zip alphabet [n..]
+                            f a = case lookup a z of
+                                     Nothing -> 0 -- really an error, we don't recognize this item
+                                     Just x  -> x
+                          in map f as
 
 -- indexIn "abcdefg" "c" -> 3
 indexIn :: Ord a => [a] -> a -> Int

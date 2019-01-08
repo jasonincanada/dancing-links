@@ -1,0 +1,8 @@
+pri: p q r
+sec: x y
+
+p q x y:A
+p r x:A y
+p x:B
+q x:A
+r y:B
