@@ -175,11 +175,11 @@ tableFromLinks (primaries, secondaries, options) = built
     spacers = [len+1]
 
     --                  Node topLen left  right up dn color
-    ---------------------------------------------------------------------------
-    root    = [ (0    , Node na     len   1     na na 0 )                     ]
-    tops    = [ (i    , Node 0      (i-1) (i+1) i  i  0 ) | i <- [1,2..len-1] ] ++
-              [ (i    , Node 0      (i-1) 0     i  i  0 ) | i <- [len]        ]
-    spacer  = [ (len+1, Node 0      na    na    0  0  0 )                     ]
+    ----------------------------------------------------------------------------
+    root    = [ (0    , Node na     len   1     na na na )                     ]
+    tops    = [ (i    , Node 0      (i-1) (i+1) i  i  na ) | i <- [1,2..len-1] ] ++
+              [ (i    , Node 0      (i-1) 0     i  i  na ) | i <- [len]        ]
+    spacer  = [ (len+1, Node 0      na    na    0  0  na )                     ]
 
     -- Some fields are not applicable for certain node types, so be explicit about this
     -- until we've refactored Node into multiple node types
@@ -215,16 +215,16 @@ addOption colors (DLTable names pc spacers nodes optionss optMap) items = DLTabl
     -- Updated top nodes for each item in this option. The ulink will change to be the new
     -- node. If there is no existing dlink'd item it will be the new node, otherwise
     -- it is not changed. Remember to set the rlink of the right-most item to 0
-    tops'     = [ (i, Node (len' i +1) (i-1) (i+1) p          (newdn i p) 0 ) | (p, (i, _)) <- pairs, i <  length names] ++
-                [ (i, Node (len' i +1) (i-1) 0     p          (newdn i p) 0 ) | (p, (i, _)) <- pairs, i == length names]
+    tops'     = [ (i, Node (len' i +1) (i-1) (i+1) p          (newdn i p) na ) | (p, (i, _)) <- pairs, i <  length names] ++
+                [ (i, Node (len' i +1) (i-1) 0     p          (newdn i p) na ) | (p, (i, _)) <- pairs, i == length names]
 
     -- The new item-level nodes introduced by this option
-    new       = [ (p, Node i           na    na    (ulink' i) i           c ) | (p, (i, c)) <- pairs ]
+    new       = [ (p, Node i           na    na    (ulink' i) i           c  ) | (p, (i, c)) <- pairs ]
 
     -- Updated dlinks for the bottom item nodes
-    bots'     = [ (b, Node i           na    na    (ulink' b) p    (clr' b) ) | (p, (i, _)) <- pairs,
-                                                                                 ulink' i /= i,
-                                                                                 let b = ulink' i ]
+    bots'     = [ (b, Node i           na    na    (ulink' b) p     (clr' b) ) | (p, (i, _)) <- pairs,
+                                                                                  ulink' i /= i,
+                                                                                  let b = ulink' i ]
 
     na        = 0
     newspacer = [ (spacerId, Node
@@ -233,16 +233,16 @@ addOption colors (DLTable names pc spacers nodes optionss optMap) items = DLTabl
                                na
                                (last + 1)
                                0
-                               0) ]
+                               na) ]
 
     -- Update the last spacer's dlink to point to the last of the newly added items
     spacer'   = [ (last, Node
                            (len' last)
-                           0
-                           0
+                           na
+                           na
                            (ulink' last)
                            (last + len)
-                           0) ]
+                           na) ]
 
     -- Fold the new updates into the table's node map
     updates   = tops' ++ new ++ bots' ++ newspacer ++ spacer'
