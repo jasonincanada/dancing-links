@@ -16,21 +16,23 @@
 module Main where
 
 import Control.Monad (forM_)
+import Data.List     (sort)
 import Pentominoes   (countPlacements, Board(..), Tile(..))
 
 -- Dimensions and symmetries of the 12 tiles
-tiles = [ Tile 'O' 5 1 True  True  False False
-        , Tile 'P' 2 3 False False False False
-        , Tile 'Q' 4 2 False False False False
-        , Tile 'R' 3 3 False False False False
-        , Tile 'S' 4 2 False False False False
-        , Tile 'T' 3 3 False True  False False
-        , Tile 'U' 3 2 True  False False False
-        , Tile 'V' 3 3 False False False True
-        , Tile 'W' 3 3 False True  False False
-        , Tile 'X' 3 3 True  True  True  False
-        , Tile 'Y' 4 2 False False False False
-        , Tile 'Z' 3 3 False False True  False
+tiles = sort
+        [ Tile 'P' 2 3 False False False False -- C1
+        , Tile 'Q' 4 2 False False False False -- C1
+        , Tile 'R' 3 3 False False False False -- C1
+        , Tile 'S' 4 2 False False False False -- C1
+        , Tile 'Y' 4 2 False False False False -- C1
+        , Tile 'T' 3 3 False True  False False -- C2
+        , Tile 'U' 3 2 True  False False False -- C2
+        , Tile 'V' 3 3 False False False True  -- C2
+        , Tile 'W' 3 3 False True  False False -- C2
+        , Tile 'Z' 3 3 False False True  False -- C2
+        , Tile 'O' 5 1 True  True  False False -- D2
+        , Tile 'X' 3 3 True  True  True  False -- D4
         ]
 
 -- From pp. 16/17 from [Knuth]

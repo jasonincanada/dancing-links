@@ -19,7 +19,10 @@ data Tile = Tile { letter   :: Char
                  , horizSym :: Bool
                  , rotSym   :: Bool
                  , diagSym  :: Bool
-                 } deriving (Show)
+                 } deriving (Eq, Show)
+
+instance Ord Tile where
+  tile1 `compare` tile2 = letter tile1 `compare` letter tile2
 
 data Board = Board Width Height
 
